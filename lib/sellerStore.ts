@@ -33,28 +33,50 @@ export const useSellerStore = create<SellerState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-        // RLS ensures sellers only get their own commissions.
-        const { data, error } = await supabase
+        // FIX: Reworked the query to be sequential to avoid RLS recursion issues.
+        
+        // 1. Fetch commissions. RLS on this table is assumed to be safe (`seller_id = auth.uid()`).
+        const { data: commissionsData, error: commissionsError } = await supabase
             .from('commissions')
-            .select(`
-                *,
-                order_items (
-                    *,
-                    products (title),
-                    orders (public_id)
-                )
-            `)
+            .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (commissionsError) throw commissionsError;
         
-        const mappedCommissions: Commission[] = data
+        if (!commissionsData || commissionsData.length === 0) {
+            set({ commissions: [], loading: false });
+            return;
+        }
+
+        // 2. Fetch related order_items and products, avoiding a join to `orders` which may cause recursion.
+        const orderItemIds = commissionsData.map(c => c.order_item_id);
+        const { data: orderItemsData, error: itemsError } = await supabase
+            .from('order_items')
+            .select('id, order_id, products(title)')
+            .in('id', orderItemIds);
+            
+        if (itemsError) throw itemsError;
+
+        // 3. Fetch related orders in a separate query.
+        const orderIds = [...new Set(orderItemsData.map(item => item.order_id))];
+        const { data: ordersData, error: ordersError } = await supabase
+            .from('orders')
+            .select('id, public_id')
+            .in('id', orderIds);
+
+        if (ordersError) throw ordersError;
+        
+        // 4. Join the data on the client side.
+        const orderItemsMap = new Map(orderItemsData.map(item => [item.id, { ...item }]));
+        const ordersMap = new Map(ordersData.map(order => [order.id, order]));
+
+        const mappedCommissions: Commission[] = commissionsData
             .map(c => {
-                // Check for nested data existence
-                const orderItem = c.order_items;
-                if (!orderItem || !orderItem.orders || !orderItem.products) {
-                    return null;
-                }
+                const orderItem = orderItemsMap.get(c.order_item_id);
+                if (!orderItem || !orderItem.products) return null;
+
+                const order = ordersMap.get(orderItem.order_id);
+                if (!order) return null;
                 
                 return {
                     id: c.id,
@@ -62,7 +84,7 @@ export const useSellerStore = create<SellerState>((set, get) => ({
                     rate: c.commission_rate,
                     date: new Date(c.created_at).toLocaleDateString(),
                     orderItemId: c.order_item_id,
-                    orderId: orderItem.orders.public_id,
+                    orderId: order.public_id,
                     productName: orderItem.products.title,
                 };
             })

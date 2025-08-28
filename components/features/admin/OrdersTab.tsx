@@ -1,30 +1,40 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../integrations/supabase/client';
 import { Database } from '../../../integrations/supabase/types';
 import { OrderStatus } from '../../../types';
 import Button from '../../ui/Button';
 import { cn } from '../../../lib/utils';
+import OrderDetailsModal from './OrderDetailsModal';
 
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 
 const OrdersTab: React.FC = () => {
     const [orders, setOrders] = useState<OrderRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
+
+    const fetchOrders = async () => {
+        setLoading(true);
+        const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        if (data) {
+            setOrders(data);
+        }
+        if (error) {
+            console.error("Error fetching orders:", error);
+        }
+        setLoading(false);
+    };
 
     useEffect(() => {
-        const fetchOrders = async () => {
-            setLoading(true);
-            const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-            if (data) {
-                setOrders(data);
-            }
-            if (error) {
-                console.error("Error fetching orders:", error);
-            }
-            setLoading(false);
-        };
         fetchOrders();
     }, []);
+
+    const handleViewDetails = (order: OrderRow) => {
+        setSelectedOrder(order);
+        setIsModalOpen(true);
+    };
 
     const getStatusColor = (status: OrderStatus) => {
         switch (status) {
@@ -66,13 +76,21 @@ const OrdersTab: React.FC = () => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <Button variant="ghost" size="sm">View Details</Button>
+                                    <Button variant="ghost" size="sm" onClick={() => handleViewDetails(order)}>View Details</Button>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+            {selectedOrder && (
+                <OrderDetailsModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    order={selectedOrder}
+                    onStatusUpdate={fetchOrders}
+                />
+            )}
         </div>
     );
 };

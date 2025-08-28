@@ -1,4 +1,5 @@
 
+
 import { create } from 'zustand';
 import { supabase } from '../integrations/supabase/client';
 import { Product, Review } from '../types';
@@ -14,7 +15,7 @@ type ReviewRow = Database['public']['Tables']['reviews']['Row'];
 
 // The shape of data from our complex query
 interface FetchedProduct extends ProductRow {
-    profiles: ProfileRow | null;
+    // Note: The `profiles` join for the seller was removed from the query.
     product_variants: VariantRow[] | null; // Can be null
     reviews: (ReviewRow & { profiles: ProfileRow | null })[] | null; // Can be null
 }
@@ -73,13 +74,12 @@ export const useProductStore = create<ProductState>((set, get) => ({
         .select(`
           *,
           product_variants (*),
-          profiles (*),
           reviews (
             *,
             profiles (*)
           )
         `);
-        // Removed .eq('status', 'active') to rely on RLS for fetching rules, which is more robust.
+      // FIX: Removed the seller profile join `profiles (*)` as it was unused and a potential source of errors.
 
       if (error) throw error;
 
@@ -88,7 +88,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
     } catch (error: any) {
       console.error("Error fetching products:", error);
-      set({ error: "Failed to load products from the universe.", loading: false });
+      // FIX: Use the actual error message from the caught error object to provide more context in the UI.
+      set({ error: error.message || "Failed to load products from the universe.", loading: false });
     }
   },
   getProductById: (id: number) => {

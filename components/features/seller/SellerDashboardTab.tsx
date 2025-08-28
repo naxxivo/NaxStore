@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Icon from '../../ui/Icon';
@@ -15,14 +16,26 @@ const SellerDashboardTab: React.FC = () => {
     useEffect(() => {
         const fetchSellerOrders = async () => {
             setLoading(true);
-            // RLS policy ensures sellers only get their own orders
-            const { data, error } = await supabase
-                .from('orders')
-                .select('*');
+            
+            // FIX: Query via `order_items` to avoid recursive RLS policy on `orders`.
+            // RLS for sellers on `order_items` is assumed to be non-recursive.
+            const { data: orderItems, error } = await supabase
+                .from('order_items')
+                .select('orders(*)');
 
-            if (data) {
-                setOrders(data);
+            if (orderItems) {
+                // Deduplicate orders since we get one entry per order item.
+                const ordersMap = new Map<number, OrderRow>();
+                orderItems.forEach(item => {
+                    if (item.orders) {
+                        const order = item.orders as unknown as OrderRow;
+                        ordersMap.set(order.id, order);
+                    }
+                });
+                const uniqueOrders = Array.from(ordersMap.values());
+                setOrders(uniqueOrders);
             }
+            
             if (error) {
                 console.error("Error fetching seller orders:", error);
             }

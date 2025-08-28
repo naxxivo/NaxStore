@@ -1,13 +1,13 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../../lib/authStore';
 import { supabase } from '../../../integrations/supabase/client';
 import { Database } from '../../../integrations/supabase/types';
 import Button from '../../ui/Button';
 import Icon from '../../ui/Icon';
+import UserEditModal from './UserEditModal';
 
-// FIX: Updated the Profile type to match the data structure returned by Supabase.
-// For list queries, one-to-one relationships like 'sellers' are returned as an array.
 type Profile = Database['public']['Tables']['profiles']['Row'] & {
     sellers: (Database['public']['Tables']['sellers']['Row'])[] 
 };
@@ -16,6 +16,8 @@ const UsersTab: React.FC = () => {
     const { verifySeller } = useAuthStore();
     const [users, setUsers] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -35,8 +37,13 @@ const UsersTab: React.FC = () => {
 
     const handleVerify = async (sellerId: string) => {
         await verifySeller(sellerId);
-        fetchUsers(); // Re-fetch to show updated status
+        fetchUsers();
     }
+
+    const handleEdit = (user: Profile) => {
+        setSelectedUser(user);
+        setIsModalOpen(true);
+    };
 
     if (loading) return <div>Loading users...</div>
 
@@ -58,7 +65,6 @@ const UsersTab: React.FC = () => {
                             <tr key={user.id} className="border-b border-[hsl(var(--border))] last:border-b-0 hover:bg-[hsl(var(--accent))]">
                                 <td className="px-6 py-4 font-medium flex items-center space-x-2">
                                     <span>{user.full_name || 'N/A'}</span>
-                                    {/* FIX: Access the first element of the 'sellers' array to check verification status. */}
                                     {user.role === 'seller' && user.sellers?.[0]?.is_verified && (
                                         <Icon name="check-circle" className="h-4 w-4 text-green-500" />
                                     )}
@@ -74,17 +80,24 @@ const UsersTab: React.FC = () => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-right space-x-2">
-                                    {/* FIX: Access the first element of the 'sellers' array to check verification status. */}
                                     {user.role === 'seller' && !user.sellers?.[0]?.is_verified && (
                                          <Button variant="secondary" size="sm" onClick={() => handleVerify(user.id)}>Verify</Button>
                                     )}
-                                    <Button variant="ghost" size="sm">Edit</Button>
+                                    <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}>Edit</Button>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+            {selectedUser && (
+                 <UserEditModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    user={selectedUser}
+                    onSave={fetchUsers}
+                />
+            )}
         </div>
     );
 };
