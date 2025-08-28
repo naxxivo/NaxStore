@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useEffect } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/layout/Header';
@@ -22,12 +23,16 @@ import SellerPortalPage from './components/features/seller/SellerPortalPage';
 import { trackEvent } from './lib/analytics';
 import { useProductStore } from './lib/productStore';
 import { useAuthStore, refetchAllUserData } from './lib/authStore';
+import { supabase } from './integrations/supabase/client';
+import { useConnectionMonitor } from './lib/hooks/useConnectionMonitor';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 
 function App() {
   const { view } = useRouterStore();
   const { fetchProducts } = useProductStore();
   const isLoggedIn = useAuthStore(state => state.isLoggedIn);
+  const { isConnected } = useConnectionMonitor();
 
   // --- START: Robust Global Data Fetching & Caching Strategy ---
   // This section implements a robust, app-wide data fetching strategy inspired by React Query.
@@ -79,6 +84,69 @@ function App() {
   }, [fetchProducts]);
 
   // --- END: Robust Global Data Fetching & Caching Strategy ---
+  
+  // --- START: Session and Connection Management ---
+  // This section ensures the user's session remains active and the app
+  // is resilient to network changes.
+
+  // 1. Proactive Session Refresh
+  useEffect(() => {
+    const refreshSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) throw error;
+        console.log('Session refreshed proactively:', data.session);
+        return data.session;
+      } catch (error) {
+        console.error('Proactive session refresh failed:', error);
+        // This will trigger onAuthStateChange to SIGNED_OUT
+        await supabase.auth.signOut();
+        return null;
+      }
+    };
+
+    const interval = setInterval(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session && session.expires_at) {
+        const expiresAt = session.expires_at * 1000;
+        const now = Date.now();
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        // Refresh if token expires in less than 5 minutes
+        if (expiresAt - now < fiveMinutes) {
+          await refreshSession();
+        }
+      }
+    }, 60 * 1000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // 2. Real-time Product Updates
+  useEffect(() => {
+    const unsubscribe = useProductStore.getState().subscribeToChanges();
+    return unsubscribe;
+  }, []);
+  
+  // --- END: Session and Connection Management ---
+  
+  // --- START: Temporary Debugging Monitor ---
+  // This helps diagnose issues by logging app state periodically.
+  useEffect(() => {
+    const debugInterval = setInterval(() => {
+      console.log('App Status:', {
+        timestamp: new Date().toISOString(),
+        isConnected: navigator.onLine,
+        supabaseReady: !!supabase,
+        authUser: useAuthStore.getState().user?.id || 'Not logged in',
+        productsLoaded: useProductStore.getState().products.length,
+      });
+    }, 30 * 1000);
+
+    return () => clearInterval(debugInterval);
+  }, []);
+  // --- END: Temporary Debugging Monitor ---
 
   useEffect(() => {
     trackEvent('page_view', { page: view });
@@ -112,7 +180,14 @@ function App() {
       <div className="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] min-h-screen flex flex-col transition-colors duration-300">
         <Header />
         <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-           {renderView()}
+           <ErrorBoundary>
+            {!isConnected && (
+              <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-b-lg shadow-lg z-50 text-sm font-semibold">
+                Connection lost. Attempting to reconnect...
+              </div>
+            )}
+            {renderView()}
+          </ErrorBoundary>
         </main>
         <Footer />
         <ShoppingCart />

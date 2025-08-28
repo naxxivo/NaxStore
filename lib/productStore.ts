@@ -1,5 +1,6 @@
 
 
+
 import { create } from 'zustand';
 import { supabase } from '../integrations/supabase/client';
 import { Product, Review } from '../types';
@@ -57,6 +58,7 @@ interface ProductState {
   getProductById: (id: number) => Product | undefined;
   addReview: (productId: number, rating: number, comment: string) => Promise<boolean>;
   addProduct: (productData: { title: string; description: string; price: number; stock: number; categoryId: number; images: string[] }) => Promise<Product | null>;
+  subscribeToChanges: () => () => void;
 }
 
 export const useProductStore = create<ProductState>((set, get) => ({
@@ -191,5 +193,24 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set(state => ({ products: [appProduct, ...state.products] }));
     useToastStore.getState().addToast({ message: `${appProduct.name} has been added!`, type: 'success' });
     return appProduct;
-  }
+  },
+  subscribeToChanges: () => {
+    const channel = supabase
+      .channel('products-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        (payload) => {
+          console.log('Product change detected, refetching products:', payload);
+          // A simple refetch is robust.
+          get().fetchProducts();
+        }
+      )
+      .subscribe();
+    
+    // Return a cleanup function
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
 }));

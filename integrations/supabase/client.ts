@@ -13,6 +13,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
   },
   // --- START: Connection Stability Fix ---
   // The realtime object is configured to make the WebSocket connection more resilient.
@@ -24,4 +25,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     },
   },
   // --- END: Connection Stability Fix ---
+  global: {
+    headers: {
+      'X-Client-Info': 'supabase-js-web'
+    }
+  }
 });

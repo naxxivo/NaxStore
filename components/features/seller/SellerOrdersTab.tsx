@@ -5,44 +5,68 @@ import { Database } from '../../../integrations/supabase/types';
 import { OrderStatus } from '../../../types';
 import Button from '../../ui/Button';
 import { cn } from '../../../lib/utils';
+import { useAuthStore } from '../../../lib/authStore';
 
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 
 const SellerOrdersTab: React.FC = () => {
+    const { user } = useAuthStore();
     const [orders, setOrders] = useState<OrderRow[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchSellerOrders = async () => {
+            if (!user) return;
             setLoading(true);
-            
-            // FIX: Query via `order_items` to avoid recursive RLS policy on `orders`.
-            // RLS for sellers on `order_items` is assumed to be non-recursive.
-            const { data: orderItems, error } = await supabase
-                .from('order_items')
-                .select('orders(*)');
 
-            if (orderItems) {
-                // Deduplicate orders since we get one entry per order item.
-                const ordersMap = new Map<number, OrderRow>();
-                orderItems.forEach(item => {
-                    if (item.orders) {
-                        const order = item.orders as unknown as OrderRow;
-                        ordersMap.set(order.id, order);
-                    }
-                });
-                const uniqueOrders = Array.from(ordersMap.values());
-                uniqueOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                setOrders(uniqueOrders);
-            }
+            try {
+                // Step 1: Get the seller's product IDs. This is safe from recursion.
+                const { data: productsData, error: productsError } = await supabase
+                    .from('products')
+                    .select('id')
+                    .eq('seller_id', user.id);
+                
+                if (productsError) throw productsError;
+                if (!productsData || productsData.length === 0) {
+                    setOrders([]);
+                    setLoading(false);
+                    return;
+                }
+                const productIds = productsData.map(p => p.id);
 
-            if (error) {
+                // Step 2: Get order_items for those products. Also safe.
+                const { data: orderItemsData, error: itemsError } = await supabase
+                    .from('order_items')
+                    .select('order_id')
+                    .in('product_id', productIds);
+
+                if (itemsError) throw itemsError;
+                 if (!orderItemsData || orderItemsData.length === 0) {
+                    setOrders([]);
+                    setLoading(false);
+                    return;
+                }
+                
+                // Step 3: Get unique order IDs and fetch the full order data.
+                const uniqueOrderIds = [...new Set(orderItemsData.map(item => item.order_id))];
+                const { data: ordersData, error: ordersError } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .in('id', uniqueOrderIds)
+                    .order('created_at', { ascending: false });
+
+                if (ordersError) throw ordersError;
+
+                setOrders(ordersData || []);
+
+            } catch (error) {
                 console.error("Error fetching seller orders:", error);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
         fetchSellerOrders();
-    }, []);
+    }, [user]);
 
     const getStatusColor = (status: OrderStatus) => {
         switch (status) {
