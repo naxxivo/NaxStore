@@ -6,8 +6,10 @@ import { Database } from '../../../integrations/supabase/types';
 import Button from '../../ui/Button';
 import Icon from '../../ui/Icon';
 
+// FIX: Updated the Profile type to match the data structure returned by Supabase.
+// For list queries, one-to-one relationships like 'sellers' are returned as an array.
 type Profile = Database['public']['Tables']['profiles']['Row'] & {
-    sellers: (Database['public']['Tables']['sellers']['Row'])[] | null 
+    sellers: (Database['public']['Tables']['sellers']['Row'])[] 
 };
 
 const UsersTab: React.FC = () => {
@@ -56,6 +58,7 @@ const UsersTab: React.FC = () => {
                             <tr key={user.id} className="border-b border-[hsl(var(--border))] last:border-b-0 hover:bg-[hsl(var(--accent))]">
                                 <td className="px-6 py-4 font-medium flex items-center space-x-2">
                                     <span>{user.full_name || 'N/A'}</span>
+                                    {/* FIX: Access the first element of the 'sellers' array to check verification status. */}
                                     {user.role === 'seller' && user.sellers?.[0]?.is_verified && (
                                         <Icon name="check-circle" className="h-4 w-4 text-green-500" />
                                     )}
@@ -71,6 +74,7 @@ const UsersTab: React.FC = () => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-right space-x-2">
+                                    {/* FIX: Access the first element of the 'sellers' array to check verification status. */}
                                     {user.role === 'seller' && !user.sellers?.[0]?.is_verified && (
                                          <Button variant="secondary" size="sm" onClick={() => handleVerify(user.id)}>Verify</Button>
                                     )}
