@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NaxStore - Modern Shopping Experience</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --background: 54 83% 94%; /* light yellow */
+        --foreground: 28 9% 13%; /* black */
+        --card: 55 50% 88%;
+        --card-foreground: 28 9% 13%;
+        --primary: 49 97% 50%; /* vibrant yellow */
+        --primary-foreground: 28 9% 13%;
+        --secondary: 54 30% 80%; /* muted yellow */
+        --secondary-foreground: 28 9% 13%;
+        --accent: 28 9% 90%; /* Light grey, good for hover */
+        --accent-foreground: 28 9% 13%;
+        --muted: 28 9% 85%;
+        --muted-foreground: 28 9% 40%;
+        --border: 28 9% 80%;
+        --ring: 28 9% 60%;
+      }
+      .dark {
+        --background: 28 9% 13%; /* black */
+        --foreground: 54 83% 94%; /* light yellow */
+        --card: 28 9% 18%;
+        --card-foreground: 54 83% 94%;
+        --primary: 49 97% 50%;
+        --primary-foreground: 28 9% 13%;
+        --secondary: 28 9% 25%;
+        --secondary-foreground: 54 83% 94%;
+        --accent: 28 9% 25%;
+        --accent-foreground: 54 83% 94%;
+        --muted: 28 9% 25%;
+        --muted-foreground: 54 83% 70%;
+        --border: 28 9% 30%;
+        --ring: 28 9% 40%;
+      }
+      body {
+        font-family: 'Poppins', sans-serif;
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+    </style>
+    <script>
+      // Prevents flash of incorrect theme
+      (function() {
+        const theme = localStorage.getItem('theme') || 'light';
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "zustand": "https://aistudiocdn.com/zustand@^5.0.8",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.12",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "class-variance-authority": "https://esm.sh/class-variance-authority@0.7.0",
+    "clsx": "https://esm.sh/clsx@2.1.0",
+    "tailwind-merge": "https://esm.sh/tailwind-merge@2.2.1",
+    "@google/genai": "https://aistudiocdn.com/google-genai@^0.4.0",
+    "zustand/": "https://aistudiocdn.com/zustand@^5.0.8/",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.56.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

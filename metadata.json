@@ -1,0 +1,5 @@
+{
+  "name": "NaxStore",
+  "description": "A modern, visually appealing e-commerce store built with React and Tailwind CSS. Features a dynamic shopping cart, product listings, and a sleek dark/light theme powered by Framer Motion for smooth animations.",
+  "requestFramePermissions": []
+}
