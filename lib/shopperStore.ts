@@ -47,7 +47,7 @@ export const useShopperStore = create<ShopperState>((set, get) => ({
         allProducts = useProductStore.getState().products;
       }
       
-      const { GoogleGenAI, Type } = await import('@google/genai');
+      const { GoogleGenAI, Type } = await import('https://aistudiocdn.com/google-genai@^0.4.0');
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const productCatalog = allProducts.map(({ id, name, description }) => ({ id, name, description }));
       
